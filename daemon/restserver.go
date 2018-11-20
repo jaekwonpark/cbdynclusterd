@@ -10,8 +10,10 @@ import (
 	"time"
 	"github.com/gorilla/mux"
 	"github.com/couchbaselabs/cbdynclusterd/helper"
+	"fmt"
 )
 
+var Version string
 
 type ErrorJSON struct {
 	Error struct {
@@ -56,6 +58,15 @@ func UnjsonifyNode(jsonNode *NodeJSON) *Node {
 	}
 }
 
+type DockerHostJSON struct {
+	Hostname string `json:"hostname"`
+	Port string     `json:"port"`
+}
+
+type VersionJSON struct {
+	Version string `json:"version"`
+}
+
 type ClusterJSON struct {
 	ID      string     `json:"id"`
 	Creator string     `json:"creator"`
@@ -80,6 +91,20 @@ func jsonifyCluster(cluster *Cluster) ClusterJSON {
 	}
 
 	return jsonCluster
+}
+
+func UnjsonifyDockerHost(dockerHost *DockerHostJSON) (string, error) {
+	if dockerHost == nil || dockerHost.Hostname == "" || dockerHost.Port == "" {
+		return "", errors.New("Docker hostname or port is empty")
+	}
+	return fmt.Sprintf("%s:%s", dockerHost.Hostname, dockerHost.Port), nil
+}
+
+func UnjsonifyVersion(version *VersionJSON) (string, error) {
+	if version == nil || version.Version == "" {
+		return "", errors.New("cbdynclusterd version is empty")
+	}
+	return version.Version, nil
 }
 
 func UnjsonifyCluster(jsonCluster *ClusterJSON) (*Cluster, error) {
@@ -292,6 +317,23 @@ type UpdateClusterJSON struct {
 	Timeout string `json:"timeout"`
 }
 
+func HttpGetDockerHost(w http.ResponseWriter, r *http.Request) {
+	jsonResp := &DockerHostJSON {
+		Hostname: dockerHostFlag,
+		Port: dockerPortFlag,
+	}
+	writeJsonResponse(w, jsonResp)
+	return
+}
+
+func HttpGetVersion(w http.ResponseWriter, r *http.Request) {
+	jsonResp := &VersionJSON {
+		Version: Version,
+	}
+	writeJsonResponse(w, jsonResp)
+	return
+}
+
 func HttpSetupCluster(w http.ResponseWriter, r *http.Request) {
 	reqCtx, err := getHttpContext(r)
 	if err != nil {
@@ -387,6 +429,8 @@ func HttpDeleteCluster(w http.ResponseWriter, r *http.Request) {
 func createRESTRouter() *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc("/", HttpRoot)
+	r.HandleFunc("/docker-host", HttpGetDockerHost).Methods("GET")
+	r.HandleFunc("/version", HttpGetVersion).Methods("GET")
 	r.HandleFunc("/clusters", HttpGetClusters).Methods("GET")
 	r.HandleFunc("/clusters", HttpCreateCluster).Methods("POST")
 	r.HandleFunc("/cluster/{cluster_id}", HttpGetCluster).Methods("GET")
